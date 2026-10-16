@@ -7,7 +7,39 @@ The format follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+### Added
+
+- Japanese and Korean throughout the app and all four modules (#9).
+
+- Simplified Chinese throughout the app and all four modules (#8).
+
+- About includes GitHub and an uninstaller that restores each module’s settings before removing the helper and moving MacSpace to the Trash (#15).
+
+### Changed
+
+- Closing or hiding the last window releases module pages and cached scans while retaining menu bar summaries (#11).
+
 ### Fixed
+
+- About MacSpace opens from the application and status menus with MacBat’s layout, version, author, GitHub and uninstall; it is no longer a Settings section (#15).
+
+- Confirmation dialogs keep the icon, heading and complete message aligned left after every layout pass.
+
+- Back dismisses All Done immediately, including while the cleaned page is still refreshing.
+
+- Page rows and their shades cascade down after loading and up before refreshing or freeing space, without animating during tile open and close (#23).
+
+- Cleaning and loading share the same page visibility: only the main chart remains, and rows and legend items return individually in a cascade (#23).
+
+- Tile captions choose their wrapped position from the destination width before the app’s opening animation (#19).
+
+- Tile attention marks share the corner’s center and keep their expanding ring inside the tile (#17).
+
+- Rolling figures, including the All done count, no longer have their animation cut off above and below (#22).
+
+- Apple Intelligence uses the system language after a language change and reports a failed off-switch instead of silently accepting it (#20).
+
+- Xcode documentation is no longer offered as a manual cleanup; Xcode has no removal control for it (#13).
 
 - While a module cleans, its tile reads "freeing space… 40%" instead of putting a middot after the ellipsis.
 - You can now drag the window from anywhere on the All done page.

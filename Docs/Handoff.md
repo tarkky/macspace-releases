@@ -88,7 +88,7 @@ Useful CLI commands (from `Build/MacSpace.app/Contents/MacOS/MacSpaceCli`):
    SDK version, minimum macOS, permissions, options, background tasks) **without running any code**. Compatible, enabled modules are
    then loaded through their principal class (`MacSpaceModuleEntry`). All modules load side by side.
 2. **Declarative UI.** A module returns a `Screen` of widgets (banner, usage bar, chart, list, toggles, button, steps, text,
-   section) and a summary widget for the Home tile. The app draws them. Actions come back as `ActionRequest`s; the app checks the
+   section) and a summary widget for the Home tile. The app draws them. Module pages use grouped SwiftUI rows whose shades and separators belong to each row, so the legend, headings and rows can cascade together. Native Form group backgrounds stayed visible during row transitions. Loading and cleaning share one visibility controller; tile zooms hide the entire page until settled. Actions come back as `ActionRequest`s; the app checks the
    action's `requires` permissions and shows its confirmation first. A row's subtitle is a count after its title, and its facts are pills
    (`Row.badges`) right after it; its detail and steps, a section's subtitle and a list's footnote open from a small (i) in a Liquid Glass popover (`InfoButton`).
    Give an item a description only when the title is not enough (something the user can do, or a risk), in one or two short
@@ -100,8 +100,10 @@ Useful CLI commands (from `Build/MacSpace.app/Contents/MacOS/MacSpaceCli`):
    and no hero.
 3. **Switches show the feature.** On every toggle, on means the feature runs and off means MacSpace switched it off. Debloat follows
    this too; keep it for new modules.
-4. **Caching.** Each module keeps one shared scan (`…Store`) so the Home tile and the page do not scan twice. The Refresh button
+4. **Caching.** When no window is visible, the host releases screen row trees and invalidates scan caches, keeping only tile summaries for the menu bar. Reopening restores the screen even if its last read was recent (#11). Each module keeps one shared scan (`…Store`) so the Home tile and the page do not scan twice. The Refresh button
    calls the module's `invalidate()` first.
+About MacSpace is the app menu’s About command (also in the status menu), using MacBat’s native alert layout with version, author, GitHub and uninstall. It is not a Settings section. Module contract version 3 adds the uninstall hook. Modules implement `prepareForUninstall(context:)` to restore reversible changes before the helper is removed. The host calls disabled modules too; failures keep the app installed. Siri restores its saved language and voice, Debloat reverts journaled settings and removes its own profiles. Cleaners use the default no-op because freed files cannot be restored.
+
 5. **Privileged work** goes through the helper. A module's `Privileged/` library declares named operations (`siri.orphan-subscriptions.*`,
    `debloat.*`, `systemdata.measure`, `systemdata.versions.delete`); `Helper/MacSpaceHelper.swift` registers them. The helper accepts
    only clients that satisfy a code-signing requirement passed on its command line and refuses to start without one.
@@ -139,8 +141,8 @@ Useful CLI commands (from `Build/MacSpace.app/Contents/MacOS/MacSpaceCli`):
     button. No welcome screen: it starts with what MacSpace needs. Steps already granted are left out (all granted: no onboarding);
     the symbol answers when a permission arrives. The step is kept across the relaunch System Settings asks for after Full Disk
     Access. Installs that ran before onboarding existed skip it; `open -a MacSpace --args --onboarding` shows it again.
-14. **Languages.** English, Portuguese (Brazil), French, Spanish and German. The translations live in `Localization/<Table>.json`
-    (`App`, and one per module), each English text, exactly as the code has it, mapped to its four translations;
+14. **Languages.** English, Portuguese (Brazil), French, Spanish, German, Simplified Chinese (zh-Hans), Japanese (ja) and Korean (ko). The translations live in `Localization/<Table>.json`
+    (`App`, and one per module), each English text, exactly as the code has it, mapped to its translations in the order declared by `Scripts/Localize.swift`;
     `swift Scripts/Localize.swift` writes them as `<language>.lproj/Localizable.strings` in `App/Resources` and in each module's
     `Bundle/` (Assemble.sh copies them), and stops if a translation drops a placeholder. `--check` also builds with the compiler's
     string extraction and lists every text the code shows that no table has: run it after changing any text. In the app, SwiftUI

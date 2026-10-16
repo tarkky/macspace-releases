@@ -122,6 +122,16 @@ public final class ModuleHandle: ObservableObject, Identifiable {
         Task { await perform(save, extraParameters: parameters, quiet: true) }
     }
 
+    private var preparingForUninstall = false
+
+    func beginUninstall() {
+        preparingForUninstall = true
+        autoRefresh?.cancel()
+        autoRefresh = nil
+    }
+
+    func cancelUninstall() { preparingForUninstall = false }
+
     private var module: (any MacSpaceModule)?
     /// Refreshes under way, and whether an action is running: both make the module busy.
     private var refreshes = 0
@@ -163,6 +173,7 @@ public final class ModuleHandle: ObservableObject, Identifiable {
 
     /// Loads the module (once) when it is enabled and compatible, then fetches its tile and screen.
     public func activate() async {
+        guard !preparingForUninstall else { return }
         if case .incompatible = state { return }
         guard isEnabled else { deactivate(); return }
         if module == nil {
@@ -194,7 +205,7 @@ public final class ModuleHandle: ObservableObject, Identifiable {
     /// `quiet` reads the module again without showing it: the charts do not pulse and Refresh does not spin (after a switch, whose
     /// row already shows the change).
     public func refresh(reload: Bool = false, quiet: Bool = false) async {
-        guard state == .ready, let module else { return }
+        guard !preparingForUninstall, state == .ready, let module else { return }
         let context = context()
         refreshGeneration += 1
         let generation = refreshGeneration
@@ -235,7 +246,8 @@ public final class ModuleHandle: ObservableObject, Identifiable {
             settings.setLastTile(newTile, module: id)
         }
         if tileIsStale { tileIsStale = false }
-        if screen != newScreen { screen = newScreen }
+        if isWatched, screen != newScreen { screen = newScreen }
+        if !isWatched { await module.invalidate() }
         scheduleAutoRefresh()
     }
 
@@ -291,9 +303,16 @@ public final class ModuleHandle: ObservableObject, Identifiable {
         if !watched {
             autoRefresh?.cancel()
             autoRefresh = nil
+            // Keep the compact tile for the menu bar, release the row trees and scan cache.
+            screen = nil
+            groupPath = []
+            Task { [weak self] in
+                guard let self, !self.isWatched, !self.performing else { return }
+                await self.module?.invalidate()
+            }
         } else if state == .ready {
             let age = lastRefreshed.map { Date().timeIntervalSince($0) } ?? .infinity
-            if age >= Self.fastestAutoRefresh { Task { await refresh(quiet: true) } } else { scheduleAutoRefresh() }
+            if screen == nil || age >= Self.fastestAutoRefresh { Task { await refresh(quiet: true) } } else { scheduleAutoRefresh() }
         }
     }
 
@@ -320,7 +339,7 @@ public final class ModuleHandle: ObservableObject, Identifiable {
     }
 
     private func performNow(_ action: Action, extraParameters: [String: String], quiet: Bool) async -> ActionResult? {
-        guard state == .ready, let module else { return nil }
+        guard !preparingForUninstall, state == .ready, let module else { return nil }
         let missing = action.requires.filter { permissions.status(of: $0) == .missing }
         if !missing.isEmpty {
             // For a switch it counts as failed: nothing changed, so the switch goes back.
@@ -386,6 +405,16 @@ public final class ModuleHandle: ObservableObject, Identifiable {
         return result
     }
 
+    /// Disabled modules may still own settings from an earlier session.
+    func prepareForUninstall() async -> ActionResult {
+        guard !isBusy else { return .failed(String(localized: "Working…")) }
+        do {
+            if module == nil { module = try loader(descriptor) }
+            guard let module else { return .failed(manifest.name) }
+            return await module.prepareForUninstall(context: context())
+        } catch { return .failed(error.localizedDescription) }
+    }
+
     public func dismissResult() { lastResult = nil }
 
     /// Shows a state of the page's action pill without running anything, for development captures (`DebugRemote`).
@@ -406,7 +435,7 @@ public final class ModuleHandle: ObservableObject, Identifiable {
     /// clean, does not take part, or is not ready.
     @discardableResult
     func autoClean() async -> CleanupReport? {
-        guard state == .ready, manifest.autoClean == true, let module, !performing else { return nil }
+        guard !preparingForUninstall, state == .ready, manifest.autoClean == true, let module, !performing else { return nil }
         isCleaning = true
         defer { isCleaning = false }
         let report = await module.autoClean(context: context())
@@ -418,7 +447,7 @@ public final class ModuleHandle: ObservableObject, Identifiable {
     }
 
     func runBackgroundTask(_ taskID: String) async {
-        guard state == .ready, let module else { return }
+        guard !preparingForUninstall, state == .ready, let module else { return }
         await module.runBackgroundTask(taskID, context: context())
         // A task may have changed something (the Debloat watch switching a feature off again): the tile and page show it.
         await refresh(quiet: true)

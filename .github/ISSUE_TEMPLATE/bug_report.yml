@@ -51,6 +51,9 @@ body:
         - Portuguese (Brazil)
         - French
         - Spanish
+        - Japanese
+        - Korean
+        - Simplified Chinese
         - German
     validations:
       required: true

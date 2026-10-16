@@ -19,7 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // A copy with pieces missing (copied while it was being built) must not be given permissions: macOS would tie them to this
         // one build, and every update would lose them. Said once, plainly.
         if !CodeIntegrity.isIntact(Bundle.main.bundleURL) {
-            let alert = NSAlert()
+            let alert = AppAlert()
             alert.messageText = String(localized: "This copy of MacSpace is incomplete")
             alert.informativeText = String(localized: "Quit MacSpace and copy it again. Permissions given to this copy would be lost at the next update.")
             alert.alertStyle = .critical
@@ -79,6 +79,9 @@ struct MacSpaceMain: App {
         .windowResizability(.contentMinSize)
         .commands {
             DesignCommands()
+            CommandGroup(replacing: .appInfo) {
+                Button("About MacSpace") { AboutMacSpace.show(host: host) }
+            }
             CommandGroup(after: .appInfo) {
                 Button("Check for Updates…") { updates.checkForUpdates() }.disabled(!updates.canCheck)
             }
